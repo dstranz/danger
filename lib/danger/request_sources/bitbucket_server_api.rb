@@ -42,9 +42,14 @@ module Danger
         fetch_json(uri)
       end
 
-      def fetch_last_comments
+      def fetch_last_activities
         uri = URI("#{pr_api_endpoint}/activities?limit=1000")
-        fetch_json(uri)[:values].select { |v| v[:action] == "COMMENTED" }.map { |v| v[:comment] }
+        fetch_json(uri)
+      end
+
+      def fetch_last_comments
+        last_activities = fetch_last_activities
+        last_activities[:values].select { |v| v[:action] == "COMMENTED" }.map { |v| v[:comment] }
       end
 
       def delete_comment(id, version)
@@ -57,7 +62,7 @@ module Danger
         body = { text: text }.to_json
         post(uri, body)
       end
-        
+
       def update_pr_build_status(status, changeset, build_job_link, description)
          uri = URI("#{self.host}/rest/build-status/1.0/commits/#{changeset}")
          body = build_status_body(status, build_job_link, description)
@@ -103,7 +108,7 @@ module Danger
           http.request(req)
         end
       end
-        
+
       def build_status_body(status, build_job_link, description)
           body = Hash.new
           body["state"] = status

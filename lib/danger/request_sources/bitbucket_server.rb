@@ -44,6 +44,12 @@ module Danger
 
       def fetch_details
         self.pr_json = @api.fetch_pr_json
+        self.ignored_violations = ignored_violations_from_pr
+      end
+
+      def ignored_violations_from_pr
+        activities = @api.fetch_last_activities
+        GetIgnoredViolation.new(activities["values"]).call
       end
 
       def setup_danger_branches

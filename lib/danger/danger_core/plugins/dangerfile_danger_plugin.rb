@@ -45,21 +45,6 @@ module Danger
     end
 
     # @!group Danger
-    # Import a Dangerfile over HTTPS.
-    #
-    # @param    [String] url
-    #           a https URL to the Dangerfile to import.
-    # @return   [void]
-    #
-    def import_dangerfile_over_https(url)
-      raise "`import_dangerfile_over_https` requires a string" unless url.kind_of?(String)
-      puts("URL is: #{url}")
-      path = download(url, "Dangerfile")
-      puts("Path is: #{path}")
-      @dangerfile.parse(Pathname.new(path))
-    end
-
-    # @!group Danger
     # Download a local or remote plugin and make it usable inside the Dangerfile.
     #
     # @param    [String] path_or_url
@@ -91,7 +76,9 @@ module Danger
         warn "Use `import_dangerfile(github: '#{opts}')` instead of `import_dangerfile '#{opts}'`."
         import_dangerfile_from_github(opts)
       elsif opts.kind_of?(Hash)
-        if opts.key?(:github)
+        if opts.key?(:url)
+          import_dangerfile_from_url(opts[:url])
+        elsif opts.key?(:github)
           import_dangerfile_from_github(opts[:github], opts[:branch], opts[:path])
         elsif opts.key?(:gitlab)
           import_dangerfile_from_gitlab(opts[:gitlab], opts[:branch], opts[:path])
@@ -130,6 +117,19 @@ module Danger
     end
 
     private
+
+    # @!group Danger
+    # Import a Dangerfile over HTTPS.
+    #
+    # @param    [String] url
+    #           a https URL to the Dangerfile to import.
+    # @return   [void]
+    #
+    def import_dangerfile_from_url(url)
+      raise "`import_dangerfile_from_url` requires a string" unless url.kind_of?(String)
+      path = download(url, "Dangerfile")
+      @dangerfile.parse(Pathname.new(path))
+    end
 
     # @!group Danger
     # Read and execute a local Dangerfile.

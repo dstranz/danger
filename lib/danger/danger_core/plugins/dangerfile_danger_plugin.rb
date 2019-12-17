@@ -54,11 +54,9 @@ module Danger
     def import_dangerfile_over_https(url)
       raise "`import_dangerfile_over_https` requires a string" unless url.kind_of?(String)
       puts("URL is: #{url}")
-      path = download(url)
+      path = download(url, "Dangerfile")
       puts("Path is: #{path}")
-      local_path = File.join(path, "Dangerfile")
-      puts("local_path is: #{local_path}")
-      @dangerfile.parse(Pathname.new(local_path))
+      @dangerfile.parse(Pathname.new(path))
     end
 
     # @!group Danger
@@ -206,7 +204,7 @@ module Danger
     #           a danger plugin from.
     # @return [String] The path to the downloaded Ruby file
     #
-    def download(path_or_url)
+    def download(path_or_url, file_name = "temporary_danger.rb")
       raise "`download` requires a string" unless path_or_url.kind_of?(String)
       raise "URL is not https, for security reasons `danger` only supports encrypted requests" if URI.parse(path_or_url).scheme != "https"
 
@@ -218,7 +216,7 @@ module Danger
       end
       content = @http_client.get(path_or_url)
 
-      path = File.join(Dir.mktmpdir, "temporary_danger.rb")
+      path = File.join(Dir.mktmpdir, file_name)
       File.write(path, content.body)
       return path
     end

@@ -45,6 +45,22 @@ module Danger
     end
 
     # @!group Danger
+    # Import a Dangerfile over HTTPS.
+    #
+    # @param    [String] url
+    #           a https URL to the Dangerfile to import.
+    # @return   [void]
+    #
+    def import_dangerfile_over_https(url)
+      raise "`import_plugin` requires a string" unless url.kind_of?(String)
+      import_url(url)
+      path = download(url)
+      puts("I am downloading to #{path}. Does it have")
+      local_path = File.join(path, "Dangerfile")
+      @dangerfile.parse(Pathname.new(local_path))
+    end
+
+    # @!group Danger
     # Download a local or remote plugin and make it usable inside the Dangerfile.
     #
     # @param    [String] path_or_url

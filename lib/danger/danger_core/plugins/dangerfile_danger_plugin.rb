@@ -53,10 +53,11 @@ module Danger
     #
     def import_dangerfile_over_https(url)
       raise "`import_dangerfile_over_https` requires a string" unless url.kind_of?(String)
-      import_url(url)
+      puts("URL is: #{url}")
       path = download(url)
-      puts("I am downloading to #{path}.")
+      puts("Path is: #{path}")
       local_path = File.join(path, "Dangerfile")
+      puts("local_path is: #{local_path}")
       @dangerfile.parse(Pathname.new(local_path))
     end
 

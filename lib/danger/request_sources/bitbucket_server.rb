@@ -48,7 +48,7 @@ module Danger
       end
 
       def ignored_violations_from_pr
-        last_comments = @api.fetch_last_comments
+        last_comments = @api.fetch_last_comments.join(', ')
         puts("#{last_comments}")
         GetIgnoredViolation.new(last_comments).call
       end

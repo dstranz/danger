@@ -44,6 +44,13 @@ module Danger
 
       def fetch_details
         self.pr_json = @api.fetch_pr_json
+        self.ignored_violations = ignored_violations_from_pr
+      end
+
+      def ignored_violations_from_pr
+        last_comments = @api.fetch_last_comments
+        puts("#{last_comments}")
+        GetIgnoredViolation.new(last_comments).call
       end
 
       def setup_danger_branches
@@ -91,7 +98,7 @@ module Danger
           @api.delete_comment(c[:id], c[:version]) if c[:text] =~ /generated_by_#{danger_id}/
         end
       end
-        
+
       def update_pr_build_status(status, build_job_link, description)
         changeset = self.pr_json[:fromRef][:latestCommit]
         # Support for older versions of Bitbucket Server

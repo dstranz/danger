@@ -42,9 +42,14 @@ module Danger
         fetch_json(uri)
       end
 
-      def fetch_last_comments
+      def fetch_last_activities
         uri = URI("#{pr_api_endpoint}/activities?limit=1000")
-        fetch_json(uri)[:values].select { |v| v[:action] == "COMMENTED" }.map { |v| v[:comment] }
+        fetch_json(uri)
+      end
+
+      def fetch_last_comments
+        last_activities = fetch_last_activities
+        last_activities[:values].select { |v| v[:action] == "COMMENTED" }.map { |v| v[:comment] }
       end
 
       def delete_comment(id, version)

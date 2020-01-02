@@ -62,7 +62,7 @@ module Danger
         body = { text: text }.to_json
         post(uri, body)
       end
-
+        
       def update_pr_build_status(status, changeset, build_job_link, description)
          uri = URI("#{self.host}/rest/build-status/1.0/commits/#{changeset}")
          body = build_status_body(status, build_job_link, description)
@@ -108,7 +108,7 @@ module Danger
           http.request(req)
         end
       end
-
+        
       def build_status_body(status, build_job_link, description)
           body = Hash.new
           body["state"] = status

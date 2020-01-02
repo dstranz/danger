@@ -44,7 +44,6 @@ module Danger
 
       def fetch_details
         self.pr_json = @api.fetch_pr_json
-        self.ignored_violations = ignored_violations_from_pr
       end
 
       def setup_danger_branches
@@ -65,14 +64,6 @@ module Danger
         # the head of the PR ( e.g. the most recent commit that will be merged. )
         scm.ensure_commitish_exists_on_branch! head_branch, head_commit
         self.scm.exec "branch #{EnvironmentManager.danger_head_branch} #{head_commit}"
-      end
-
-      def ignored_violations_from_pr
-        puts("ignored_violations_from_pr pr_json is:")
-        puts("#{self.pr_json}")
-        puts("pr_json to description:")
-        puts("#{self.pr_json.description}")
-        GetIgnoredViolation.new(self.pr_json.description).call
       end
 
       def organisation

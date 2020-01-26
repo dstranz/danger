@@ -17,12 +17,20 @@ module Danger
         ]
       end
 
+      def self.optional_env_vars
+        ["DANGER_BITBUCKETSERVER_CODE_INSIGHTS_REPORT_TITLE",
+         "DANGER_BITBUCKETSERVER_CODE_INSIGHTS_REPORT_DESCRIPTION",
+         "DANGER_BITBUCKETSERVER_CODE_INSIGHTS_REPORT_LOGO_URL"
+        ]
+      end
+
       def initialize(ci_source, environment)
         self.ci_source = ci_source
         self.environment = environment
 
         project, slug = ci_source.repo_slug.split("/")
         @api = BitbucketServerAPI.new(project, slug, ci_source.pull_request_id, environment)
+        @code_insights = CodeInsightsAPI.new(project, slug, pull_request_id, environment)
       end
 
       def validates_as_ci?
@@ -79,16 +87,45 @@ module Danger
       def update_pull_request!(warnings: [], errors: [], messages: [], markdowns: [], danger_id: "danger", new_comment: false, remove_previous_comments: false)
         delete_old_comments(danger_id: danger_id) if !new_comment || remove_previous_comments
 
-        comment = generate_description(warnings: warnings, errors: errors)
-        comment += "\n\n"
-        comment += generate_comment(warnings: warnings,
-                                     errors: errors,
-                                   messages: messages,
-                                  markdowns: markdowns,
-                        previous_violations: {},
-                                  danger_id: danger_id,
-                                   template: "bitbucket_server")
 
+        has_inline_comments = !(warnings + errors + messages).select(&:inline?).empty?
+        if @code_insights.is_ready && has_inline_comments
+
+          inline_warnings = warnings.select(&:inline?)
+          inline_errors = errors.select(&:inline?)
+          inline_messages = messages.select(&:inline?)
+
+          main_warnings = warnings.reject(&:inline?)
+          main_errors = errors.reject(&:inline?)
+          main_messages = messages.reject(&:inline?)
+
+          @code_insights.delete_report
+          @code_insights.post_report
+          @code_insights.post_annotations(warnings: inline_warnings, errors: inline_errors, messages: inline_messages)
+
+          comment = generate_description(warnings: main_warnings, errors: main_errors)
+          comment += "\n\n"
+          comment += generate_comment(warnings: main_warnings,
+                                      errors: main_errors,
+                                      messages: main_messages,
+                                      markdowns: markdowns,
+                                      previous_violations: {},
+                                      danger_id: danger_id,
+                                      template: "bitbucket_server")
+
+        else
+          comment = generate_description(warnings: warnings, errors: errors)
+          comment += "\n\n"
+          comment += generate_comment(warnings: warnings,
+                                      errors: errors,
+                                      messages: messages,
+                                      markdowns: markdowns,
+                                      previous_violations: {},
+                                      danger_id: danger_id,
+                                      template: "bitbucket_server")
+        end
+
+        # Eventually.
         @api.post_comment(comment)
       end
 
@@ -96,6 +133,33 @@ module Danger
         @api.fetch_last_comments.each do |c|
           @api.delete_comment(c[:id], c[:version]) if c[:text] =~ /generated_by_#{danger_id}/
         end
+      end
+
+      def regular_violations_group(warnings: [], errors: [], messages: [], markdowns: [])
+        {
+          warnings: warnings.reject(&:inline?),
+          errors: errors.reject(&:inline?),
+          messages: messages.reject(&:inline?),
+          markdowns: markdowns.reject(&:inline?)
+        }
+      end
+
+      def inline_violations_group(warnings: [], errors: [], messages: [], markdowns: [])
+        cmp = proc do |a, b|
+          next -1 unless a.file && a.line
+          next 1 unless b.file && b.line
+
+          next a.line <=> b.line if a.file == b.file
+          next a.file <=> b.file
+        end
+
+        # Sort to group inline comments by file
+        {
+          warnings: warnings.select(&:inline?).sort(&cmp),
+          errors: errors.select(&:inline?).sort(&cmp),
+          messages: messages.select(&:inline?).sort(&cmp),
+          markdowns: markdowns.select(&:inline?).sort(&cmp)
+        }
       end
 
       def update_pr_build_status(status, build_job_link, description)

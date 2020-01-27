@@ -2,6 +2,7 @@
 
 require "danger/helpers/comments_helper"
 require "danger/request_sources/bitbucket_server_api"
+require_relative "request_source"
 
 module Danger
   module RequestSources
@@ -18,7 +19,8 @@ module Danger
       end
 
       def self.optional_env_vars
-        ["DANGER_BITBUCKETSERVER_CODE_INSIGHTS_REPORT_TITLE",
+        ["DANGER_BITBUCKETSERVER_CODE_INSIGHTS_REPORT_KEY",
+         "DANGER_BITBUCKETSERVER_CODE_INSIGHTS_REPORT_TITLE",
          "DANGER_BITBUCKETSERVER_CODE_INSIGHTS_REPORT_DESCRIPTION",
          "DANGER_BITBUCKETSERVER_CODE_INSIGHTS_REPORT_LOGO_URL"
         ]
@@ -30,7 +32,7 @@ module Danger
 
         project, slug = ci_source.repo_slug.split("/")
         @api = BitbucketServerAPI.new(project, slug, ci_source.pull_request_id, environment)
-        @code_insights = CodeInsightsAPI.new(project, slug, pull_request_id)
+        @code_insights = CodeInsightsAPI.new(project, slug, environment)
       end
 
       def validates_as_ci?
@@ -99,9 +101,9 @@ module Danger
           main_errors = errors.reject(&:inline?)
           main_messages = messages.reject(&:inline?)
 
-          @code_insights.delete_report
-          @code_insights.post_report
-          @code_insights.post_annotations(warnings: inline_warnings, errors: inline_errors, messages: inline_messages)
+          base_commit = '688275a7723b593bc86b88cf7733c21e6f739492'  # self.pr_json[:toRef][:latestCommit]
+
+          @code_insights.send_report_with_annotations(base_commit, inline_warnings, inline_errors, inline_messages)
 
           comment = generate_description(warnings: main_warnings, errors: main_errors)
           comment += "\n\n"
@@ -114,6 +116,7 @@ module Danger
                                       template: "bitbucket_server")
 
         else
+
           comment = generate_description(warnings: warnings, errors: errors)
           comment += "\n\n"
           comment += generate_comment(warnings: warnings,
@@ -171,3 +174,28 @@ module Danger
     end
   end
 end
+
+require "../../../lib/danger/ci_source/ci_source"
+require "../../../lib/danger/ci_source/bamboo"
+require_relative "code_insights_api"
+require "../../../lib/danger/danger_core/messages/violation"
+require "net/http"
+require "json"
+
+ci_source = Danger::Bamboo::new(ENV)
+server = Danger::RequestSources::BitbucketServer::new(ci_source, ENV)
+
+inline_messages = [ Danger::Violation::new("You have a new message.",
+                                   false,
+                                   'AllegroModules/Tinkerbell/Tinkerbell/DependencyContainer.swift',
+                                   nil)]
+inline_errors = [ Danger::Violation::new("This is an unbearable error!!!",
+                                 false,
+                                 'AllegroModules/Tinkerbell/Tinkerbell/DependencyContainer.swift',
+                                 16)]
+inline_warnings = [ Danger::Violation::new("This is a serious warning.",
+                                   false,
+                                   'Gemfile',
+                                   21)]
+
+server.update_pull_request!(warnings: inline_warnings, errors: inline_errors, messages: inline_messages, new_comment: true)

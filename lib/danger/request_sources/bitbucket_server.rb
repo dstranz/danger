@@ -30,7 +30,7 @@ module Danger
 
         project, slug = ci_source.repo_slug.split("/")
         @api = BitbucketServerAPI.new(project, slug, ci_source.pull_request_id, environment)
-        @code_insights = CodeInsightsAPI.new(project, slug, pull_request_id, environment)
+        @code_insights = CodeInsightsAPI.new(project, slug, pull_request_id)
       end
 
       def validates_as_ci?
@@ -89,7 +89,7 @@ module Danger
 
 
         has_inline_comments = !(warnings + errors + messages).select(&:inline?).empty?
-        if @code_insights.is_ready && has_inline_comments
+        if @code_insights.ready? && has_inline_comments
 
           inline_warnings = warnings.select(&:inline?)
           inline_errors = errors.select(&:inline?)
@@ -124,8 +124,6 @@ module Danger
                                       danger_id: danger_id,
                                       template: "bitbucket_server")
         end
-
-        # Eventually.
         @api.post_comment(comment)
       end
 

@@ -17,23 +17,57 @@ module Danger
         @slug = slug
       end
 
-      def is_ready
+      def ready?
         !(@report_title.empty? || @report_description.empty? || @logo_url.empty? || @username.empty? || @password.empty? || @host.empty?)
       end
 
       def delete_report(commit)
-        endpoint_uri = URI(endpoint_per_commit(commit))
-        req = Net::HTTP::Delete.new(endpoint_uri.request_uri, { "Content-Type" => "application/json" })
-        req.basic_auth @username, @password
+        uri = URI(report_endpoint_at_commit(commit))
+        request = Net::HTTP::Delete.new(uri.request_uri, {"Content-Type" => "application/json"})
+        request.basic_auth @username, @password
         Net::HTTP.start(uri.hostname, uri.port, use_ssl: use_ssl) do |http|
-          http.request(req)
+          http.request(request)
         end
+
       end
 
-      def post_report(commit)
+      def send_report_with_annotations(commit, inline_warnings, inline_errors, inline_messages)
+
+        inline_messages = [ Violation::new("You have a new message.",
+                                           false,
+                                           'AllegroModules/Tinkerbell/Tinkerbell/DependencyContainer.swift',
+                                           nil)]
+        inline_errors = [ Violation::new("This is an unbearable error!!!",
+                                         false,
+                                         'AllegroModules/Tinkerbell/Tinkerbell/DependencyContainer.swift',
+                                         16)]
+        inline_warnings = [ Violation::new("This is a serious warning.",
+                                           false,
+                                           'Gemfile',
+                                           21)]
+
+
+        delete_report(commit)
+        put_report(commit, inline_errors.count)
+        post_annotations(commit, inline_warnings, inline_errors, inline_messages)
+      end
+
+      def put_report(commit, inline_errors_count)
         uri = URI(report_endpoint_at_commit(commit))
-        body = "omfg"
-        post(uri, body)
+        request = Net::HTTP::Put.new(uri.request_uri, {"Content-Type" => "application/json"})
+        request.basic_auth @username, @password
+        request.body = {"title": @report_title,
+                        "details": @report_description,
+                        "result": (inline_errors_count > 0) ? "FAIL" : "PASS",
+                        "reporter": @username,
+                        "link": "https://github.com/danger/danger",
+                        "logoURL": @logo_url
+        }.to_json
+
+        Net::HTTP.start(uri.hostname, uri.port, use_ssl: use_ssl) do |http|
+          response = http.request(request)
+          puts(response)
+        end
       end
 
       def post_annotations(commit, inline_warnings, inline_errors, inline_messages)
@@ -42,63 +76,70 @@ module Danger
 
         inline_messages.each do |violation|
           annotation = {}
-          annotation["message"] = violation.message.to_s
+          annotation["message"] = violation.message
           annotation["severity"] = "LOW"
-          annotation["path"] = violation.file.to_s
+          annotation["path"] = violation.file
           annotation["line"] = violation.line.to_i
           annotations << annotation
         end
 
         inline_warnings.each do |violation|
           annotation = {}
-          annotation["message"] = violation.message.to_s
+          annotation["message"] = violation.message
           annotation["severity"] = "MEDIUM"
-          annotation["path"] = violation.file.to_s
+          annotation["path"] = violation.file
           annotation["line"] = violation.line.to_i
           annotations << annotation
         end
 
         inline_errors.each do |violation|
           annotation = {}
-          annotation["message"] = violation.message.to_s
+          annotation["message"] = violation.message
           annotation["severity"] = "HIGH"
-          annotation["path"] = violation.file.to_s
+          annotation["path"] = violation.file
           annotation["line"] = violation.line.to_i
           annotations << annotation
         end
 
-        body = { "annotations" => annotations }.to_json
-        post(uri, body)
-      end
-    end
+        body = {annotations: annotations}.to_json
+        request = Net::HTTP::Post.new(uri.request_uri, {"Content-Type" => "application/json"})
+        request.basic_auth @username, @password
+        request.body = body
 
-    def report_endpoint_at_commit(commit)
-      "#{@host}/rest/insights/1.0/projects/#{@project}/repos/#{@slug}/commits/#{commit}/reports/#{@report_title}"
-    end
+        response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: use_ssl) do |http|
+          resp = http.request(request)
+          puts(resp)
+        end
 
-    def annotation_endpoint_at_commit(commit)
-      report_endpoint_at_commit(commit) + "/annotations"
-    end
-
-    def post(uri, body)
-      request = Net::HTTP::Post.new(uri.request_uri, { "Content-Type" => "application/json" })
-      request.basic_auth @username, @password
-      request.body = body
-
-      response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: use_ssl) do |http|
-        http.request(request)
+        # show failure when server returns an error
+        case response
+        when Net::HTTPClientError, Net::HTTPServerError
+          # HTTP 4xx - 5xx
+          abort "\nError posting comment to Code Insights API: #{response.code} (#{response.message}) - #{response.body}\n\n"
+        end
       end
 
-      # show failure when server returns an error
-      case response
-      when Net::HTTPClientError, Net::HTTPServerError
-        # HTTP 4xx - 5xx
-        abort "\nError posting comment to Code Insights API: #{response.code} (#{response.message}) - #{response.body}\n\n"
+      def report_endpoint_at_commit(commit)
+        "#{@host}/rest/insights/1.0/projects/#{@project}/repos/#{@slug}/commits/#{commit}/reports/#{@report_key}"
       end
-    end
 
-    def use_ssl
-      @host.include? "https://"
+      def annotation_endpoint_at_commit(commit)
+        report_endpoint_at_commit(commit) + "/annotations"
+      end
+
+      def use_ssl
+        @host.include? "https://"
+      end
+
     end
   end
 end
+
+require 'net/http'
+require 'json'
+require '../../../lib/danger/danger_core/messages/violation'
+
+puts("Let's go")
+insights = Danger::RequestSources::CodeInsightsAPI::new("iosbuyers","buyers-app", ENV)
+# insights.delete_report('688275a7723b593bc86b88cf7733c21e6f739492')
+insights.send_report_with_annotations('688275a7723b593bc86b88cf7733c21e6f739492', [], [], [])

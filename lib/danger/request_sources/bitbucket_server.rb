@@ -129,10 +129,10 @@ module Danger
 
         if @code_insights.ready?
           head_commit = self.pr_json[:fromRef][:latestCommit]
-          @code_insights.send_report(commit: head_commit,
-                                     inline_warnings: inline_warnings,
-                                     inline_errors: inline_errors,
-                                     inline_messages: inline_messages)
+          @code_insights.send_report(head_commit,
+                                     inline_warnings,
+                                     inline_errors,
+                                     inline_messages)
         end
 
         @api.post_comment(comment)

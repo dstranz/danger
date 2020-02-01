@@ -104,9 +104,6 @@ module Danger
           main_messages = main_violations[:messages] || []
           main_markdowns = main_violations[:markdowns] || []
 
-          head_commit = self.pr_json[:fromRef][:latestCommit]
-
-
           comment = generate_description(warnings: main_warnings, errors: main_errors)
           comment += "\n\n"
           comment += generate_comment(warnings: main_warnings,
@@ -131,7 +128,11 @@ module Danger
          end
 
         if @code_insights.ready?
-          @code_insights.send_report(head_commit, inline_warnings, inline_errors, inline_messages)
+          head_commit = self.pr_json[:fromRef][:latestCommit]
+          @code_insights.send_report(commit: head_commit,
+                                     inline_warnings: inline_warnings,
+                                     inline_errors: inline_errors,
+                                     inline_messages: inline_messages)
         end
 
         @api.post_comment(comment)

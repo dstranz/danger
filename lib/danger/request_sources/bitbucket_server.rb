@@ -93,13 +93,16 @@ module Danger
         has_inline_comments = !(warnings + errors + messages).select(&:inline?).empty?
         if @code_insights.ready? && has_inline_comments
 
-          inline_warnings = warnings.select(&:inline?)
-          inline_errors = errors.select(&:inline?)
-          inline_messages = messages.select(&:inline?)
 
-          main_warnings = warnings.reject(&:inline?)
-          main_errors = errors.reject(&:inline?)
-          main_messages = messages.reject(&:inline?)
+          inline_violations = inline_violations_group
+          inline_warnings = inline_violations[:warnings]
+          inline_errors = inline_violations[:errors]
+          inline_messages = inline_violations[:messages]
+
+          main_violations = main_violations_group
+          main_warnings = main_violations[:warnings]
+          main_errors = main_violations[:errors]
+          main_messages = main_messages[:messages]
 
           base_commit = '688275a7723b593bc86b88cf7733c21e6f739492'  # self.pr_json[:toRef][:latestCommit]
 

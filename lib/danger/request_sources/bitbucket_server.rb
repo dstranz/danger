@@ -94,27 +94,26 @@ module Danger
         has_inline_comments = !(warnings + errors + messages).select(&:inline?).empty?
         if @code_insights.ready? && has_inline_comments
 
+          inline_violations = inline_violations_group(warnings: warnings, errors: errors, messages: messages)
+          inline_warnings = inline_violations[:warnings] || []
+          inline_errors = inline_violations[:errors] || []
+          inline_messages = inline_violations[:messages] || []
 
-          inline_violations = inline_violations_group
-          inline_warnings = inline_violations[:warnings]
-          inline_errors = inline_violations[:errors]
-          inline_messages = inline_violations[:messages]
+          main_violations = main_violations_group(warnings: warnings, errors: errors, messages: messages)
+          main_warnings = main_violations[:warnings] || []
+          main_errors = main_violations[:errors] || []
+          main_messages = main_violations[:messages] || []
+          main_markdowns = main_violations[:markdowns] || []
 
-          main_violations = main_violations_group
-          main_warnings = main_violations[:warnings]
-          main_errors = main_violations[:errors]
-          main_messages = main_messages[:messages]
-
-          base_commit = '688275a7723b593bc86b88cf7733c21e6f739492'  # self.pr_json[:toRef][:latestCommit]
-
-          @code_insights.send_report_with_annotations(base_commit, inline_warnings, inline_errors, inline_messages)
+          head_commit = self.pr_json[:fromRef][:latestCommit]
+          @code_insights.send_report_with_annotations(head_commit, inline_warnings, inline_errors, inline_messages)
 
           comment = generate_description(warnings: main_warnings, errors: main_errors)
           comment += "\n\n"
           comment += generate_comment(warnings: main_warnings,
                                       errors: main_errors,
                                       messages: main_messages,
-                                      markdowns: markdowns,
+                                      markdowns: main_markdowns,
                                       previous_violations: {},
                                       danger_id: danger_id,
                                       template: "bitbucket_server")
@@ -140,7 +139,7 @@ module Danger
         end
       end
 
-      def regular_violations_group(warnings: [], errors: [], messages: [], markdowns: [])
+      def main_violations_group(warnings: [], errors: [], messages: [], markdowns: [])
         {
           warnings: warnings.reject(&:inline?),
           errors: errors.reject(&:inline?),

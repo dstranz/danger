@@ -38,7 +38,7 @@ module Danger
 
       end
 
-      def send_report(commit, inline_warnings: [], inline_errors: [], inline_messages: [])
+      def send_report(commit, inline_warnings, inline_errors, inline_messages)
         delete_report(commit)
         put_report(commit, inline_errors.count)
         should_post_annotations = !(inline_warnings + inline_errors + inline_messages).empty?

@@ -2,6 +2,7 @@
 
 require "danger/helpers/comments_helper"
 require "danger/request_sources/bitbucket_server_api"
+require "danger/request_sources/code_insights_api"
 require_relative "request_source"
 
 module Danger
@@ -177,28 +178,3 @@ module Danger
     end
   end
 end
-
-require "../../../lib/danger/ci_source/ci_source"
-require "../../../lib/danger/ci_source/bamboo"
-require_relative "code_insights_api"
-require "../../../lib/danger/danger_core/messages/violation"
-require "net/http"
-require "json"
-
-ci_source = Danger::Bamboo::new(ENV)
-server = Danger::RequestSources::BitbucketServer::new(ci_source, ENV)
-
-inline_messages = [ Danger::Violation::new("You have a new message.",
-                                   false,
-                                   'AllegroModules/Tinkerbell/Tinkerbell/DependencyContainer.swift',
-                                   nil)]
-inline_errors = [ Danger::Violation::new("This is an unbearable error!!!",
-                                 false,
-                                 'AllegroModules/Tinkerbell/Tinkerbell/DependencyContainer.swift',
-                                 16)]
-inline_warnings = [ Danger::Violation::new("This is a serious warning.",
-                                   false,
-                                   'Gemfile',
-                                   21)]
-
-server.update_pull_request!(warnings: inline_warnings, errors: inline_errors, messages: inline_messages, new_comment: true)

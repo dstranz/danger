@@ -134,13 +134,3 @@ module Danger
     end
   end
 end
-
-#
-# require 'net/http'
-# require 'json'
-# require '../../../lib/danger/danger_core/messages/violation'
-#
-# puts("Let's go")
-# insights = Danger::RequestSources::CodeInsightsAPI::new("iosbuyers","buyers-app", ENV)
-# # insights.delete_report('688275a7723b593bc86b88cf7733c21e6f739492')
-# insights.send_report_with_annotations('688275a7723b593bc86b88cf7733c21e6f739492', [], [], [])

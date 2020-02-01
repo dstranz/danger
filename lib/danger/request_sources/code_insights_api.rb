@@ -38,10 +38,13 @@ module Danger
 
       end
 
-      def send_report_with_annotations(commit, inline_warnings, inline_errors, inline_messages)
+      def send_report(commit, inline_warnings: [], inline_errors: [], inline_messages: [])
         delete_report(commit)
         put_report(commit, inline_errors.count)
-        post_annotations(commit, inline_warnings, inline_errors, inline_messages)
+        should_post_annotations = !(inline_warnings + inline_errors + inline_messages).empty?
+        if should_post_annotations
+          post_annotations(commit, inline_warnings, inline_errors, inline_messages)
+        end
       end
 
       def put_report(commit, inline_errors_count)

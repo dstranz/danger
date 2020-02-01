@@ -90,14 +90,13 @@ module Danger
       def update_pull_request!(warnings: [], errors: [], messages: [], markdowns: [], danger_id: "danger", new_comment: false, remove_previous_comments: false)
         delete_old_comments(danger_id: danger_id) if !new_comment || remove_previous_comments
 
+        inline_violations = inline_violations_group(warnings: warnings, errors: errors, messages: messages)
+        inline_warnings = inline_violations[:warnings] || []
+        inline_errors = inline_violations[:errors] || []
+        inline_messages = inline_violations[:messages] || []
 
-        has_inline_comments = !(warnings + errors + messages).select(&:inline?).empty?
-        if @code_insights.ready? && has_inline_comments
-
-          inline_violations = inline_violations_group(warnings: warnings, errors: errors, messages: messages)
-          inline_warnings = inline_violations[:warnings] || []
-          inline_errors = inline_violations[:errors] || []
-          inline_messages = inline_violations[:messages] || []
+        has_inline_comments = !(inline_warnings + inline_errors + inline_messages).empty?
+         if has_inline_comments
 
           main_violations = main_violations_group(warnings: warnings, errors: errors, messages: messages)
           main_warnings = main_violations[:warnings] || []
@@ -106,7 +105,7 @@ module Danger
           main_markdowns = main_violations[:markdowns] || []
 
           head_commit = self.pr_json[:fromRef][:latestCommit]
-          @code_insights.send_report_with_annotations(head_commit, inline_warnings, inline_errors, inline_messages)
+
 
           comment = generate_description(warnings: main_warnings, errors: main_errors)
           comment += "\n\n"
@@ -129,7 +128,12 @@ module Danger
                                       previous_violations: {},
                                       danger_id: danger_id,
                                       template: "bitbucket_server")
+         end
+
+        if @code_insights.ready?
+          @code_insights.send_report(head_commit, inline_warnings, inline_errors, inline_messages)
         end
+
         @api.post_comment(comment)
       end
 

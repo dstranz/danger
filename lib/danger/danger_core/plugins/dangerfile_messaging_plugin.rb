@@ -209,8 +209,6 @@ module Danger
       }
     end
 
-    private
-
     def should_ignore_violation(message)
       env.request_source.ignored_violations.include? message
     end

@@ -2,6 +2,7 @@
 
 require "danger/danger_core/dangerfile_dsl"
 require "danger/danger_core/standard_error"
+require "danger/danger_core/message_aggregator"
 
 require "danger/danger_core/plugins/dangerfile_messaging_plugin"
 require "danger/danger_core/plugins/dangerfile_danger_plugin"
@@ -11,6 +12,7 @@ require "danger/danger_core/plugins/dangerfile_gitlab_plugin"
 require "danger/danger_core/plugins/dangerfile_bitbucket_server_plugin"
 require "danger/danger_core/plugins/dangerfile_bitbucket_cloud_plugin"
 require "danger/danger_core/plugins/dangerfile_vsts_plugin"
+require "danger/danger_core/plugins/dangerfile_local_only_plugin"
 
 module Danger
   class Dangerfile
@@ -38,7 +40,7 @@ module Danger
 
     # The ones that everything would break without
     def self.essential_plugin_classes
-      [DangerfileMessagingPlugin, DangerfileGitPlugin, DangerfileDangerPlugin, DangerfileGitHubPlugin, DangerfileGitLabPlugin, DangerfileBitbucketServerPlugin, DangerfileBitbucketCloudPlugin, DangerfileVSTSPlugin]
+      [DangerfileMessagingPlugin, DangerfileGitPlugin, DangerfileDangerPlugin, DangerfileGitHubPlugin, DangerfileGitLabPlugin, DangerfileBitbucketServerPlugin, DangerfileBitbucketCloudPlugin, DangerfileVSTSPlugin, DangerfileLocalOnlyPlugin]
     end
 
     # Both of these methods exist on all objects
@@ -59,7 +61,6 @@ module Danger
     # that the core DSLs have, then starts looking at plugins support.
 
     # rubocop:disable Style/MethodMissing
-
     def method_missing(method_sym, *arguments, &_block)
       @core_plugins.each do |plugin|
         if plugin.public_methods(false).include?(method_sym)
@@ -196,9 +197,7 @@ module Danger
       instance_eval do
         # rubocop:disable Lint/RescueException
         begin
-          # rubocop:disable Eval
-          eval(contents, nil, path.to_s)
-          # rubocop:enable Eval
+          eval_file(contents, path)
         rescue Exception => e
           message = "Invalid `#{path.basename}` file: #{e.message}"
           raise DSLError.new(message, path, e.backtrace, contents)
@@ -244,21 +243,31 @@ module Danger
 
     def post_results(danger_id, new_comment, remove_previous_comments)
       violations = violation_report
+      report = {
+          warnings: violations[:warnings].uniq,
+          errors: violations[:errors].uniq,
+          messages: violations[:messages].uniq,
+          markdowns: status_report[:markdowns].uniq,
+          danger_id: danger_id
+      }
 
-      env.request_source.update_pull_request!(
-        warnings: violations[:warnings].uniq,
-        errors: violations[:errors].uniq,
-        messages: violations[:messages].uniq,
-        markdowns: status_report[:markdowns].uniq,
-        danger_id: danger_id,
-        new_comment: new_comment,
-        remove_previous_comments: remove_previous_comments
-      )
+      if env.request_source.respond_to?(:update_pr_by_line!) && ENV["DANGER_MESSAGE_AGGREGATION"]
+        env.request_source.update_pr_by_line!(message_groups: MessageAggregator.aggregate(**report),
+                                             new_comment: new_comment,
+                                             remove_previous_comments: remove_previous_comments,
+                                             danger_id: report[:danger_id])
+      else
+        env.request_source.update_pull_request!(
+          **report,
+          new_comment: new_comment,
+          remove_previous_comments: remove_previous_comments
+        )
+      end
     end
 
     def setup_for_running(base_branch, head_branch)
       env.ensure_danger_branches_are_setup
-      env.scm.diff_for_folder(".".freeze, from: base_branch, to: head_branch)
+      env.scm.diff_for_folder(".".freeze, from: base_branch, to: head_branch, lookup_top_level: true)
     end
 
     def run(base_branch, head_branch, dangerfile_path, danger_id, new_comment, remove_previous_comments)
@@ -293,6 +302,10 @@ module Danger
     end
 
     private
+
+    def eval_file(contents, path)
+      eval(contents, nil, path.to_s) # rubocop:disable Eval
+    end
 
     def print_list(title, rows)
       unless rows.empty?

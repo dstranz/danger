@@ -8,7 +8,7 @@ require "no_proxy_fix"
 
 module Danger
   class PR < Runner
-    self.summary = "Run the Dangerfile locally against Pull Requests (works with forks, too). Does not post to the PR.".freeze
+    self.summary = "Run the Dangerfile locally against Pull Requests (works with forks, too). Does not post to the PR. Usage: danger pr <URL>".freeze
     self.command = "pr".freeze
 
     def self.options
@@ -37,7 +37,7 @@ module Danger
       @dangerfile_path = dangerfile if File.exist?(dangerfile)
 
       if argv.flag?("pry", false)
-        @dangerfile_path = PrySetup.new(cork).setup_pry(@dangerfile_path)
+        @dangerfile_path = PrySetup.new(cork).setup_pry(@dangerfile_path, PR.command)
       end
     end
 
@@ -45,6 +45,9 @@ module Danger
       super
       unless @dangerfile_path
         help! "Could not find a Dangerfile."
+      end
+      unless @pr_url
+        help! "Could not find a pull-request. Usage: danger pr <URL>"
       end
     end
 
@@ -80,6 +83,7 @@ module Danger
       end
       Octokit.middleware = Faraday::RackBuilder.new do |builder|
         builder.use Faraday::HttpCache, store: cache, serializer: Marshal, shared_cache: false
+        builder.use Octokit::Middleware::FollowRedirects
         builder.use Octokit::Response::RaiseError
         builder.adapter Faraday.default_adapter
       end

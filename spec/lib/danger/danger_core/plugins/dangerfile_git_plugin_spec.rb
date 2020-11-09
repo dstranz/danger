@@ -8,10 +8,13 @@ def run_in_repo_with_diff
       File.open(dir + "/file2", "w") { |f| f.write "Shorts.\nShoes." }
       `git add .`
       `git commit -m "adding file1 & file2"`
+      `git tag 1.0.0`
       `git checkout -b new-branch --quiet`
       File.open(dir + "/file2", "w") { |f| f.write "Pants!" }
+      File.open(dir + "/file3", "w") { |f| f.write "Jawns.\nYou know, jawns." }
+      File.delete(dir + "/file1")
       `git add .`
-      `git commit -m "update file2"`
+      `git commit -m "update file2, add file 3, remove file1"`
       g = Git.open(".")
       yield g
     end
@@ -81,6 +84,13 @@ RSpec.describe Danger::DangerfileGitPlugin, host: :github do
       expect(@dsl.commits).to eq(log)
     end
 
+    it "gets tags" do
+      tag = "1.0.0\n2.0.0"
+      allow(@repo).to receive(:tags).and_return(tag)
+
+      expect(@dsl.tags).to all be_a(String)
+    end
+
     describe "getting diff for a specific file" do
       it "returns nil when a specific diff does not exist" do
         run_in_repo_with_diff do |git|
@@ -108,7 +118,7 @@ RSpec.describe Danger::DangerfileGitPlugin, host: :github do
         end
       end
 
-      it "returns file info when it exists" do
+      it "returns file info when it is modified" do
         run_in_repo_with_diff do |git|
           diff = git.diff("master")
           allow(@repo).to receive(:diff).and_return(diff)
@@ -118,6 +128,32 @@ RSpec.describe Danger::DangerfileGitPlugin, host: :github do
           expect(info[:deletions]).to equal(2)
           expect(info[:before]).to eq("Shorts.\nShoes.")
           expect(info[:after]).to eq("Pants!")
+        end
+      end
+
+      it "returns file info when it is added" do
+        run_in_repo_with_diff do |git|
+          diff = git.diff("master")
+          allow(@repo).to receive(:diff).and_return(diff)
+          info = @dsl.info_for_file("file3")
+          expect(info).to_not be_nil
+          expect(info[:insertions]).to equal(2)
+          expect(info[:deletions]).to equal(0)
+          expect(info[:before]).to be_nil
+          expect(info[:after]).to be_nil
+        end
+      end
+
+      it "returns file info when it is deleted" do
+        run_in_repo_with_diff do |git|
+          diff = git.diff("master")
+          allow(@repo).to receive(:diff).and_return(diff)
+          info = @dsl.info_for_file("file1")
+          expect(info).to_not be_nil
+          expect(info[:insertions]).to equal(0)
+          expect(info[:deletions]).to equal(1)
+          expect(info[:before]).to be_nil
+          expect(info[:after]).to be_nil
         end
       end
     end

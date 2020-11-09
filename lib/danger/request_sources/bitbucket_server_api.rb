@@ -5,7 +5,7 @@ require "danger/helpers/comments_helper"
 module Danger
   module RequestSources
     class BitbucketServerAPI
-      attr_accessor :host, :pr_api_endpoint
+      attr_accessor :host, :pr_api_endpoint, :key, :project
 
       def initialize(project, slug, pull_request_id, environment)
         @username = environment["DANGER_BITBUCKETSERVER_USERNAME"]
@@ -14,6 +14,8 @@ module Danger
         if self.host && !(self.host.include? "http://") && !(self.host.include? "https://")
           self.host = "https://" + self.host
         end
+        self.key = slug
+        self.project = project
         self.pr_api_endpoint = "#{host}/rest/api/1.0/projects/#{project}/repos/#{slug}/pull-requests/#{pull_request_id}"
       end
 
@@ -29,6 +31,10 @@ module Danger
 
       def credentials_given?
         @username && !@username.empty? && @password && !@password.empty?
+      end
+
+      def pull_request(*)
+        fetch_pr_json
       end
 
       def fetch_pr_json
@@ -50,6 +56,12 @@ module Danger
         uri = URI("#{pr_api_endpoint}/comments")
         body = { text: text }.to_json
         post(uri, body)
+      end
+        
+      def update_pr_build_status(status, changeset, build_job_link, description)
+         uri = URI("#{self.host}/rest/build-status/1.0/commits/#{changeset}")
+         body = build_status_body(status, build_job_link, description)
+         post(uri, body)
       end
 
       private
@@ -76,11 +88,11 @@ module Danger
           http.request(req)
         end
 
-        # show error to the user when BitBucket Server returned an error
+        # show error to the user when Bitbucket Server returned an error
         case res
         when Net::HTTPClientError, Net::HTTPServerError
           # HTTP 4xx - 5xx
-          abort "\nError posting comment to BitBucket Server: #{res.code} (#{res.message})\n\n"
+          abort "\nError posting comment to Bitbucket Server: #{res.code} (#{res.message}) - #{res.body}\n\n"
         end
       end
 
@@ -90,6 +102,15 @@ module Danger
         Net::HTTP.start(uri.hostname, uri.port, use_ssl: use_ssl) do |http|
           http.request(req)
         end
+      end
+        
+      def build_status_body(status, build_job_link, description)
+          body = Hash.new
+          body["state"] = status
+          body["key"] = self.key
+          body["url"] = build_job_link
+          body["description"] = description if description
+          return body.to_json
       end
     end
   end

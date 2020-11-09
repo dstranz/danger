@@ -2,7 +2,7 @@ require "danger/ci_source/circle_api"
 
 RSpec.describe Danger::CircleAPI do
   context "with `CIRCLE_PR_NUMBER`" do
-    let(:valid_env) {
+    let(:valid_env) do
       {
         "CIRCLE_BUILD_NUM" => "1500",
         "DANGER_CIRCLE_CI_API_TOKEN" => "token2",
@@ -10,11 +10,11 @@ RSpec.describe Danger::CircleAPI do
         "CIRCLE_PROJECT_REPONAME" => "eigen",
         "CIRCLE_PR_NUMBER" => "800"
       }
-    }
+    end
 
     it "returns correct attributes" do
       result = Danger::CircleCI.new(valid_env)
-    
+
       expect(result).to have_attributes(
         repo_slug: "artsy/eigen",
         pull_request_id: "800"
@@ -25,7 +25,7 @@ RSpec.describe Danger::CircleAPI do
       it "returns correct attributes" do
         env = valid_env.merge!({ "DANGER_GITHUB_HOST" => "git.foobar.com" })
         result = Danger::CircleCI.new(env)
-    
+
         expect(result).to have_attributes(
           repo_slug: "artsy/eigen",
           pull_request_id: "800"
@@ -33,8 +33,8 @@ RSpec.describe Danger::CircleAPI do
       end
     end
   end
-  
-  it "uses CIRCLE_PR_NUMBER if avaliable" do
+
+  it "uses CIRCLE_PR_NUMBER if available" do
     env = {
       "CIRCLE_BUILD_NUM" => "1500",
       "DANGER_CIRCLE_CI_API_TOKEN" => "token2",
@@ -42,7 +42,7 @@ RSpec.describe Danger::CircleAPI do
       "CIRCLE_PROJECT_REPONAME" => "eigen",
       "CIRCLE_PR_NUMBER" => "800"
     }
-    
+
     result = Danger::CircleCI.new(env)
 
     expect(result).to have_attributes(
@@ -84,7 +84,7 @@ RSpec.describe Danger::CircleAPI do
 
     expect(result).to eq("https://github.com/artsy/eigen/pull/2606")
   end
-  
+
   it "uses Circle CI API to grab the url if available" do
     env = {
       "CIRCLE_BUILD_NUM" => "1500",
@@ -100,18 +100,37 @@ RSpec.describe Danger::CircleAPI do
     expect(result).to eq("https://github.com/artsy/eigen/pull/2606")
   end
 
-  it "uses Circle CI API to and can tell you it's not a PR'" do
-    env = {
-      "CIRCLE_BUILD_NUM" => "1500",
-      "DANGER_CIRCLE_CI_API_TOKEN" => "token",
-      "CIRCLE_PROJECT_USERNAME" => "artsy",
-      "CIRCLE_PROJECT_REPONAME" => "eigen"
-    }
-    build_response = JSON.parse(fixture("circle_build_no_pr_response"), symbolize_names: true)
-    allow_any_instance_of(Danger::CircleAPI).to receive(:fetch_build).with("artsy/eigen", "1500", "token").and_return(build_response)
+  context "build is not on a PR" do
+    context "and api response contains an empty pr_response field" do
+      it "tells you it's not a PR" do
+        env = {
+          "CIRCLE_BUILD_NUM" => "1500",
+          "DANGER_CIRCLE_CI_API_TOKEN" => "token",
+          "CIRCLE_PROJECT_USERNAME" => "artsy",
+          "CIRCLE_PROJECT_REPONAME" => "eigen"
+        }
+        build_response = JSON.parse(fixture("circle_build_no_pr_response"), symbolize_names: true)
+        allow_any_instance_of(Danger::CircleAPI).to receive(:fetch_build).with("artsy/eigen", "1500", "token").and_return(build_response)
 
-    result = Danger::CircleAPI.new.pull_request?(env)
+        result = Danger::CircleAPI.new.pull_request?(env)
+        expect(result).to be_falsy
+      end
+    end
 
-    expect(result).to be_falsy
+    context "and api response contains no pr_response field" do
+      it "tells you it's not a PR" do
+        env = {
+          "CIRCLE_BUILD_NUM" => "1500",
+          "DANGER_CIRCLE_CI_API_TOKEN" => "token",
+          "CIRCLE_PROJECT_USERNAME" => "artsy",
+          "CIRCLE_PROJECT_REPONAME" => "eigen"
+        }
+        build_response = JSON.parse(fixture("circle_build_no_pr_field_response"), symbolize_names: true)
+        allow_any_instance_of(Danger::CircleAPI).to receive(:fetch_build).with("artsy/eigen", "1500", "token").and_return(build_response)
+
+        result = Danger::CircleAPI.new.pull_request?(env)
+        expect(result).to be_falsy
+      end
+    end
   end
 end

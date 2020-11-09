@@ -16,15 +16,15 @@ module Danger
   #
   # @example Ensure that labels have been used on the PR
   #
-  #          fail "Please add labels to this PR" if bitbucket_server.pr_labels.empty?
+  #          failure "Please add labels to this PR" if bitbucket_server.pr_labels.empty?
   #
   # @example Ensure there is a summary for a PR
   #
-  #          fail "Please provide a summary in the Pull Request description" if bitbucket_server.pr_body.length < 5
+  #          failure "Please provide a summary in the Pull Request description" if bitbucket_server.pr_body.length < 5
   #
   # @example Only accept PRs to the develop branch
   #
-  #          fail "Please re-submit this PR to develop, we may have already fixed your issue." if bitbucket_server.branch_for_base != "develop"
+  #          failure "Please re-submit this PR to develop, we may have already fixed your issue." if bitbucket_server.branch_for_base != "develop"
   #
   # @example Highlight when a celebrity makes a pull request
   #
@@ -168,6 +168,20 @@ module Danger
     #
     def markdown_link(paths, full_path: true)
       create_link(paths, full_path) { |href, text| create_markdown_link(href, text) }
+    end
+    
+    # @!group Bitbucket Server Misc
+    # Updates the PR with build status and build server job link.
+    # @param    [String] status
+    #           SUCCESSFUL, FAILED and INPROGRESS
+    # @param    [String] build_job_link
+    #           Build server job link
+    # @param    [String] description
+    #           Build status description
+    # @return   [String]
+    #
+    def update_pr_build_status(status, build_job_link, description)
+        @bs.update_pr_build_status(status, build_job_link, description)
     end
 
     private

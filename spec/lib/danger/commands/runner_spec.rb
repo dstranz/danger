@@ -27,6 +27,7 @@ RSpec.describe Danger::Runner do
         "@base" => nil,
         "@head" => nil,
         "@fail_on_errors" => false,
+        "@fail_if_no_pr" => false,
         "@danger_id" => "danger",
         "@new_comment" => nil
       )
@@ -35,6 +36,30 @@ RSpec.describe Danger::Runner do
         "@silent" => false,
         "@verbose" => false
       )
+    end
+  end
+
+  context "colored output" do
+    before do
+      expect(Danger::Executor).to receive(:new) { executor }
+      expect(executor).to receive(:run) { "Colored message".red }
+    end
+    after { Colored2.enable! } # reset to expected value to avoid false positives in other tests
+
+    let(:argv) { [] }
+    let(:runner) { described_class.new(CLAide::ARGV.new(argv)) }
+    let(:executor) { double("Executor") }
+
+    it "adds ansi codes to strings" do
+      expect(runner.run).to eq "\e[31mColored message\e[0m"
+    end
+
+    context "when no-ansi is specified" do
+      let(:argv) { ["--no-ansi"] }
+
+      it "does not add ansi codes to strings" do
+        expect(runner.run).to eq "Colored message"
+      end
     end
   end
 
@@ -52,6 +77,7 @@ RSpec.describe Danger::Runner do
         danger_id: "danger",
         new_comment: nil,
         fail_on_errors: false,
+        fail_if_no_pr: false,
         remove_previous_comments: nil
       )
 
@@ -70,6 +96,7 @@ RSpec.describe Danger::Runner do
             "--danger_id=my-danger-id",
             "--new-comment",
             "--fail-on-errors=true",
+            "--fail-if-no-pr=true",
             "--remove-previous-comments"
           ]
         )
@@ -84,6 +111,7 @@ RSpec.describe Danger::Runner do
           danger_id: "my-danger-id",
           new_comment: true,
           fail_on_errors: "true",
+          fail_if_no_pr: "true",
           remove_previous_comments: true
         )
 

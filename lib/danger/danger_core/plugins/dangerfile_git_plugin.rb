@@ -14,11 +14,11 @@ module Danger
   # @example Don't allow a file to be deleted
   #
   #          deleted = git.deleted_files.include? "my/favourite.file"
-  #          fail "Don't delete my precious" if deleted
+  #          failure "Don't delete my precious" if deleted
   #
   # @example Fail really big diffs
   #
-  #          fail "We cannot handle the scale of this PR" if git.lines_of_code > 50_000
+  #          failure "We cannot handle the scale of this PR" if git.lines_of_code > 50_000
   #
   # @example Warn when there are merge commits in the diff
   #
@@ -136,15 +136,23 @@ module Danger
     # @return [Hash] with keys `:insertions`, `:deletions` giving line counts, and `:before`, `:after` giving file contents, or nil if the file has no changes or does not exist
     #
     def info_for_file(file)
-      return nil unless modified_files.include?(file)
+      return nil unless modified_files.include?(file) || added_files.include?(file) || deleted_files.include?(file)
       stats = @git.diff.stats[:files][file]
       diff = @git.diff[file]
       {
         insertions: stats[:insertions],
         deletions: stats[:deletions],
-        before: diff.blob(:src).contents,
-        after: diff.blob(:dst).contents
+        before: added_files.include?(file) || deleted_files.include?(file) ? nil : diff.blob(:src).contents,
+        after: added_files.include?(file) || deleted_files.include?(file) ? nil : diff.blob(:dst).contents
       }
+    end
+
+    # @!group Git Metadata
+    # List of remote tags
+    # @return [String]
+    #
+    def tags
+      @git.tags.each_line
     end
   end
 end
